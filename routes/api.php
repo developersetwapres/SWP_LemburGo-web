@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\LemburController;
 use App\Http\Controllers\Api\Settings\ProfileController;
 use App\Http\Controllers\Api\Settings\SecurityController;
 use Illuminate\Support\Facades\Route;
+use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
 
 Route::get('/', function () {
     return response()->json([
@@ -30,17 +31,20 @@ Route::prefix('settings')->name('api.settings.')->middleware('auth:sanctum')->gr
         ->middleware(['verified', 'throttle:6,1'])->name('password.update');
 });
 
-Route::prefix('/auth')->group(function () {
-    Route::post('/login', [AuthController::class, 'login']);
+Route::prefix('/auth')
+    ->withoutMiddleware(EnsureFrontendRequestsAreStateful::class)
+    ->group(function () {
+        Route::post('/login', [AuthController::class, 'login']);
 
-    Route::middleware('auth:sanctum')->group(function () {
-        Route::delete('/logout', [AuthController::class, 'logout']);
+        Route::middleware('auth:sanctum')->group(function () {
+            Route::delete('/logout', [AuthController::class, 'logout']);
+        });
     });
-});
 
 // LEMBUR --------------------------
 Route::prefix('/lemburs')
     ->middleware('auth:sanctum')
+    ->withoutMiddleware(EnsureFrontendRequestsAreStateful::class)
     ->group(function () {
         Route::get('/', [LemburController::class, 'index']);
         Route::post('/', [LemburController::class, 'store']);

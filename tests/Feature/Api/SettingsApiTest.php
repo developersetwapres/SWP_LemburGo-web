@@ -173,6 +173,34 @@ test('existing token login still returns full user data and logout revokes only 
     $this->assertModelExists($other);
 });
 
+test('bearer API remains stateless when Flutter web shares the stateful SPA origin', function () {
+    config(['sanctum.stateful' => ['developersetwapres.github.io']]);
+    $this->app->instance('env', 'local');
+    $user = User::factory()->create();
+
+    $login = $this->withHeader('Origin', 'https://developersetwapres.github.io')
+        ->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password'])
+        ->assertOk();
+    Auth::forgetGuards();
+    $headers = [
+        'Authorization' => 'Bearer '.$login->json('meta.token'),
+        'Origin' => 'https://developersetwapres.github.io',
+    ];
+
+    $this->postJson('/api/lemburs', [
+        'tanggal_kegiatan' => '2026-09-11',
+        'nama_kegiatan' => 'Pengujian Flutter Web',
+        'lokasi_kegiatan' => 'Kantor',
+    ], $headers)->assertOk();
+    $this->deleteJson('/api/auth/logout', [], $headers)->assertOk();
+
+    $this->assertDatabaseHas('lemburs', [
+        'user_id' => $user->id,
+        'nama_kegiatan' => 'Pengujian Flutter Web',
+    ]);
+    $this->assertDatabaseCount('personal_access_tokens', 0);
+});
+
 test('credentialed CORS supports Fortify and API requests including CSRF and PDF headers', function (string $path) {
     $this->options($path, [], ['Origin' => 'http://localhost:3000', 'Access-Control-Request-Method' => 'POST', 'Access-Control-Request-Headers' => 'X-XSRF-TOKEN,Content-Type'])
         ->assertNoContent()->assertHeader('Access-Control-Allow-Origin', 'http://localhost:3000')
